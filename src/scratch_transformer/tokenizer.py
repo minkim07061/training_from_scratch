@@ -13,27 +13,39 @@ from pathlib import Path
 from collections import Counter
 
 
-# input: corpus of tokens
-# locally: map of pair counts
-# output: most common pair, updated corpus with tokens merged
 def single_merge(corpus, min_frequency):
-    pair_counts = Counter((bytes, bytes))
+    pair_counts = Counter()
     for i in range(1, len(corpus)):
         pair_counts[(corpus[i-1], corpus[i])] += 1
     merged_pair, pair_count = pair_counts.most_common(1)[0]
-    print(merged_pair, pair_count)
     if pair_count < min_frequency:
         return corpus, None
     
     new_corpus = list()
-    for i in range(len(corpus)-1):
+    i = 0
+    while i < len(corpus)-1:
         if merged_pair == (corpus[i], corpus[i+1]):
             new_corpus.append(corpus[i] + corpus[i+1])
             i += 1
         else:
             new_corpus.append(corpus[i])
+        i += 1
     
     return new_corpus, merged_pair
+
+def try_merge(token_ids, pair, merge_token_id):
+    merged_tokens = []
+    i = 0
+    while i < len(token_ids):
+        if i == len(token_ids) -1:
+            merged_tokens.append(token_ids[i])
+        elif (token_ids[i], token_ids[i+1]) == pair:
+            merged_tokens.append(merge_token_id)
+            i += 1
+        else:
+            merged_tokens.append(token_ids[i])
+        i += 1
+    return merged_tokens
 
 @dataclass
 class BPETokenizer:
@@ -77,7 +89,7 @@ class BPETokenizer:
             if not merged_pair:
                 print("Vocab size limited because no additional pair was found above min_frequency")
                 break
-            vocab[next_token_id] = merged_pair[0] + merged_pair[1]
+            vocab[next_token_id] = bytes([merged_pair[0]]) + bytes([merged_pair[1]])
             merges[merged_pair] = next_token_id
             next_token_id += 1
         return cls(vocab=vocab, merges=merges)
@@ -90,7 +102,10 @@ class BPETokenizer:
         - Apply learned merges in the same priority order used during training.
         - Return a flat list of token ids.
         """
-        raise NotImplementedError("TODO: implement BPE encode in tokenizer.py")
+        token_ids = list(text.encode("utf-8"))
+        for pair, merge_token_id in self.merges.items():
+            token_ids = try_merge(token_ids, pair, merge_token_id)
+        return token_ids
 
     def decode(self, token_ids: list[int]) -> str:
         """Convert token ids back into a UTF-8 string.
