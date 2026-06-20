@@ -20,13 +20,14 @@ def single_merge(corpus, min_frequency):
     pair_counts = Counter((bytes, bytes))
     for i in range(1, len(corpus)):
         pair_counts[(corpus[i-1], corpus[i])] += 1
-    merged_pair, pair_count = pair_counts.most_common(1)
+    merged_pair, pair_count = pair_counts.most_common(1)[0]
+    print(merged_pair, pair_count)
     if pair_count < min_frequency:
         return corpus, None
     
     new_corpus = list()
     for i in range(len(corpus)-1):
-        if pair == (corpus[i], corpus[i+1]):
+        if merged_pair == (corpus[i], corpus[i+1]):
             new_corpus.append(corpus[i] + corpus[i+1])
             i += 1
         else:
@@ -58,26 +59,28 @@ class BPETokenizer:
         - Repeatedly merge the most frequent pair until vocab_size is reached.
         - Store both the final vocab and pair -> new-token-id merge table.
         """
+        vocab = {}
+        merges = {}
         # Add initial byte tokens to vocab.
         next_token_id = 0
         for i in range(256):
-            vocab[next_token_id] = bytes(i)
+            vocab[next_token_id] = bytes([i])
             next_token_id += 1
 
         # create the initial corpus
         corpus = []
         for text in texts:
             byte_tokens = list(text.encode('utf-8'))
-            corpus = corpus.extend(byte_tokens)
-
-        while len(self.vocab) < vocab_size:
+            corpus.extend(byte_tokens)
+        while len(vocab) < vocab_size:
             corpus, merged_pair = single_merge(corpus, min_frequency)
             if not merged_pair:
                 print("Vocab size limited because no additional pair was found above min_frequency")
                 break
-            self.vocab[next_token_id] = merged_pair[0] + merged_pair[1]
+            vocab[next_token_id] = merged_pair[0] + merged_pair[1]
             merges[merged_pair] = next_token_id
             next_token_id += 1
+        return cls(vocab=vocab, merges=merges)
 
     def encode(self, text: str) -> list[int]:
         """Convert text into token ids using the learned BPE merges.
