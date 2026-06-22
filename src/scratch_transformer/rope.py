@@ -61,10 +61,22 @@ def apply_rope(
     # rotation: [a cos θ - b sin θ, a sin θ + b cos θ]
 
     # Create cos and sin vertor with offset:offset+T
-
     # reshape cos and sin vector to be (1, 1, T, D/2)
+    seq_len = x.shape[2]
+    head_dim = x.shape[3]
+    cos = cos[offset:offset+seq_len][None,None,:,:] # shape(1, 1, seq_len, head_dim / 2)
+    sin = sin[offset:offset+seq_len][None,None,:,:] # shape(1, 1, seq_len, head_dim / 2)
 
     # split the x vector with even and odd. apply the rotation and merge.
+    x_even = x[:,:,:,::2]
+    x_odd = x[:,:,:,1::2]
+
+    x_even_rotate = x_even * cos - x_odd * sin # shape (batch , n_heads, seq_len, head_dim/2)
+    x_odd_rotate = x_even * sin + x_odd * cos # shape (batch, n_heasd, seq_len, head_dim/2)
+
+    x_rotated = torch.empty_like(x)
+    x_rotated[:,:,:,::2] = x_even_rotate
+    x_rotated[:,:,:,1::2] = x_odd_rotate
 
     # return the final output.
-    raise NotImplementedError("TODO: implement RoPE application")
+    return x_rotated
