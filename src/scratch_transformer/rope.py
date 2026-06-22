@@ -20,7 +20,21 @@ def build_rope_cache(
     - Build a positions x frequencies table.
     - Return cos(table) and sin(table), cast to the requested dtype/device.
     """
-    raise NotImplementedError("TODO: implement RoPE cache construction")
+    if head_dim % 2 != 0:
+        raise ValueError("Head dimension needs to be even.")    
+    # Create inverse frequency vector with the following eq: inv_freq = 1 / base^(dimension_index / D)
+    dim_indices = torch.arange(0, head_dim, 2, device=device, dtype=dtype) # shape (head_dim/2, )
+    inv_freq = 1 / base ** (dim_indices / head_dim) # shape (head_dim/2, )
+    positions = torch.arange(0, seq_len, device=device, dtype=torch.int32)
+
+    # angle[position, pair] = position * inv_freq[pair]
+    angles = positions[:, None] * inv_freq[None, :]
+
+    # Apply sin and cosin to create two vectors.
+    sin = torch.sin(angles)
+    cos = torch.cos(angles)
+    
+    return (cos, sin)
 
 
 def apply_rope(
@@ -43,4 +57,14 @@ def apply_rope(
     - Rotate each pair using the cos/sin values for the current positions.
     - Interleave the rotated coordinates back into the original shape.
     """
+
+    # rotation: [a cos θ - b sin θ, a sin θ + b cos θ]
+
+    # Create cos and sin vertor with offset:offset+T
+
+    # reshape cos and sin vector to be (1, 1, T, D/2)
+
+    # split the x vector with even and odd. apply the rotation and merge.
+
+    # return the final output.
     raise NotImplementedError("TODO: implement RoPE application")
