@@ -25,4 +25,6 @@ class RMSNorm(nn.Module):
         - Divide x by rms.
         - Multiply by self.weight with broadcasting.
         """
-        raise NotImplementedError("TODO: implement RMSNorm.forward")
+        rms = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + self.eps)
+        x= x / rms
+        return self.weight * x
