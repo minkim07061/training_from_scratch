@@ -54,7 +54,13 @@ class KVCache:
         - Otherwise concatenate along the sequence dimension.
         - Keep keys and values on the same device/dtype as the incoming tensors.
         """
-        raise NotImplementedError("TODO: implement KVCache.append")
+        if self.keys is None or self.values is None:
+            self.keys = keys
+            self.values = values
+        else:
+            self.keys = torch.cat([self.keys, keys], dim=-2)
+            self.values = torch.cat([self.values, values], dim=-2)
+        return (self.keys, self.values)
 
 
 class MultiHeadCausalSelfAttention(nn.Module):
