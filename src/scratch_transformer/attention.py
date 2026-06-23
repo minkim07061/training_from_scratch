@@ -25,8 +25,11 @@ def build_causal_mask(
       positions only.
     - Return a boolean tensor on the requested device.
     """
-    raise NotImplementedError("TODO: implement causal mask construction")
-
+    cache_mask_past = torch.ones((seq_len, past_len), dtype=torch.bool, device=device)
+    cache_mask_curr = torch.ones((seq_len, seq_len), dtype=torch.bool, device=device)
+    cache_mask_curr = torch.tril(cache_mask_curr)
+    final_cache_mask = torch.cat([cache_mask_past, cache_mask_curr], dim=1)
+    return final_cache_mask
 
 @dataclass
 class KVCache:
