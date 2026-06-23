@@ -15,7 +15,7 @@ import os
 import json
 
 
-def single_merge(corpus, min_frequency):
+def single_merge(corpus, min_frequency, next_token_id):
     pair_counts = Counter()
     for i in range(1, len(corpus)):
         pair_counts[(corpus[i-1], corpus[i])] += 1
@@ -27,7 +27,7 @@ def single_merge(corpus, min_frequency):
     i = 0
     while i < len(corpus)-1:
         if merged_pair == (corpus[i], corpus[i+1]):
-            new_corpus.append(corpus[i] + corpus[i+1])
+            new_corpus.append(next_token_id)
             i += 1
         else:
             new_corpus.append(corpus[i])
@@ -87,11 +87,11 @@ class BPETokenizer:
             byte_tokens = list(text.encode('utf-8'))
             corpus.extend(byte_tokens)
         while len(vocab) < vocab_size:
-            corpus, merged_pair = single_merge(corpus, min_frequency)
+            corpus, merged_pair = single_merge(corpus, min_frequency, next_token_id)
             if not merged_pair:
                 print("Vocab size limited because no additional pair was found above min_frequency")
                 break
-            vocab[next_token_id] = bytes([merged_pair[0]]) + bytes([merged_pair[1]])
+            vocab[next_token_id] = vocab[merged_pair[0]] + vocab[merged_pair[1]]
             merges[merged_pair] = next_token_id
             next_token_id += 1
         return cls(vocab=vocab, merges=merges)
