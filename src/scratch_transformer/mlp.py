@@ -25,4 +25,8 @@ class SwiGLU(nn.Module):
         - Multiply gate * candidate elementwise.
         - Project back to d_model with down_proj.
         """
-        raise NotImplementedError("TODO: implement SwiGLU.forward")
+        silu_layer = nn.SiLU()
+        gate = silu_layer(self.gate_proj(x))
+        candidate = self.up_proj(x)
+        mult = gate * candidate
+        return self.dropout(self.down_proj(mult))
