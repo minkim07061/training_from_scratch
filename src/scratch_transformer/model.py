@@ -7,6 +7,7 @@ from scratch_transformer.attention import KVCache, MultiHeadCausalSelfAttention
 from scratch_transformer.config import TransformerConfig
 from scratch_transformer.mlp import SwiGLU
 from scratch_transformer.norm import RMSNorm
+from scratch_transformer import rope
 
 
 class TransformerBlock(nn.Module):
@@ -81,4 +82,13 @@ class TransformerLM(nn.Module):
         - Normalize final hidden states and project to vocab logits.
         - Return logits with shape ``(batch, seq_len, vocab_size)``.
         """
+        batch, seq_len = input_ids.shape
+        n_heads = self.config.n_heads
+        d_model = self.config.d_model
+        head_dim = d_model // n_heads
+        embeddings = self.token_embedding(input_ids)
+        cos, sin = rope.build_rope_cache(seq_len, head_dim)
+        
+        
+
         raise NotImplementedError("TODO: implement TransformerLM.forward")
