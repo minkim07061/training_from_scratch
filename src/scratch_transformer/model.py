@@ -34,7 +34,13 @@ class TransformerBlock(nn.Module):
         - Apply mlp_norm, SwiGLU, and residual addition.
         - Return the updated hidden states and cache.
         """
-        raise NotImplementedError("TODO: implement TransformerBlock.forward")
+        attn, cache = self.attn(self.attn_norm(x), cos=cos, sin=sin, cache=cache)
+        x = x + attn
+
+        mlp = self.mlp(self.mlp_norm(x))
+        x = x + mlp
+
+        return x, cache
 
 
 class TransformerLM(nn.Module):
