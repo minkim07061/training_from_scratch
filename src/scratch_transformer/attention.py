@@ -6,6 +6,8 @@ import torch
 from torch import nn
 
 from scratch_transformer.config import TransformerConfig
+from scratch_transformer.rope import apply_rope
+import math
 
 
 def build_causal_mask(
@@ -95,4 +97,28 @@ class MultiHeadCausalSelfAttention(nn.Module):
         - Build and apply a causal mask before softmax.
         - Compute attention weights, weighted values, and output projection.
         """
-        raise NotImplementedError("TODO: implement MultiHeadCausalSelfAttention.forward")
+        batch, seq_len, d_model = x.shape
+        num_heads = self.config.n_heads
+        head_dim = d_model // num_heads
+        qkv = self.qkv(x)
+        q = qkv[:,:,:d_model].reshape(batch, seq_len, num_heads, head_dim).transpose(1, 2) # batch, num_heads, seq_len, head_dim
+        k = qkv[:,:,d_model:2*d_model].reshape(batch, seq_len, num_heads, head_dim).transpose(1, 2) # batch, num_heads, seq_len, head_dim
+        v = qkv[:,:,d_model*2:d_model*3].reshape(batch, seq_len, num_heads, head_dim).transpose(1, 2) # batch, num_heads, seq_len, head_dim
+
+        if cos is not None and sin is not None:
+            q = apply_rope(q, cos, sin)
+            k = apply_rope(k, cos, sin)
+    
+        past_len = cache.length if cache is not None else 0
+        if cache is not None:
+            k, v = cache.append(k, v) # (batch, num_heads, seq_len+past_len, head_dim)
+    
+        mask = build_causal_mask(seq_len, past_len=past_len)
+
+        scores = q @ k.transpose(2, 3) # shape (batch, num_heads, seq_len, seq_len+past_len)
+        scores = scores / math.sqrt(head_dim)
+        scores = scores.masked_fill(~mask, float("-inf"))
+        attention = torch.softmax(scores, dim=-1) # (batch, num_heads, seq_len, seq_len+past_len)
+        weighted_values = attention @ v # (batch, num_heads, seq_len, head_dim)
+        weighted_values = weighted_values.transpose(1, 2).reshape(batch, seq_len, d_model)
+        return (self.dropout(self.out_proj(weighted_values)), cache)
