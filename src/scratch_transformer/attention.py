@@ -104,10 +104,13 @@ class MultiHeadCausalSelfAttention(nn.Module):
         q = qkv[:,:,:d_model].reshape(batch, seq_len, num_heads, head_dim).transpose(1, 2) # batch, num_heads, seq_len, head_dim
         k = qkv[:,:,d_model:2*d_model].reshape(batch, seq_len, num_heads, head_dim).transpose(1, 2) # batch, num_heads, seq_len, head_dim
         v = qkv[:,:,d_model*2:d_model*3].reshape(batch, seq_len, num_heads, head_dim).transpose(1, 2) # batch, num_heads, seq_len, head_dim
-
+        
+        offset = 0
+        if cache:
+            offset = cache.length
         if cos is not None and sin is not None:
-            q = apply_rope(q, cos, sin)
-            k = apply_rope(k, cos, sin)
+            q = apply_rope(q, cos, sin, offset=offset)
+            k = apply_rope(k, cos, sin, offset=offset)
     
         past_len = cache.length if cache is not None else 0
         if cache is not None:

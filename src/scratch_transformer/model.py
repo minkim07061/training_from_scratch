@@ -86,9 +86,18 @@ class TransformerLM(nn.Module):
         n_heads = self.config.n_heads
         d_model = self.config.d_model
         head_dim = d_model // n_heads
-        embeddings = self.token_embedding(input_ids)
-        cos, sin = rope.build_rope_cache(seq_len, head_dim)
+        x = self.token_embedding(input_ids)
+        past_len=0
+        if caches:
+            past_len = caches[0].length
+        cos, sin = rope.build_rope_cache(seq_len + past_len, head_dim)
+        for i, block in enumerate(self.blocks):
+            if caches:
+                x, new_cache = block(x, cos=cos, sin=sin, cache=caches[i])
+                caches[i] = new_cache
+            else:
+                x, _ = block(x, cos=cos, sin=sin)
+        x = self.final_norm(x)
+        return self.lm_head(x), caches
         
         
-
-        raise NotImplementedError("TODO: implement TransformerLM.forward")
