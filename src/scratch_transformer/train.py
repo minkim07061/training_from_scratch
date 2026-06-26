@@ -6,6 +6,7 @@ import torch
 from torch import nn
 
 from scratch_transformer.model import TransformerLM
+import numpy as np
 
 
 def train_step(
@@ -25,7 +26,23 @@ def train_step(
     - Backpropagate, optionally clip gradients, step the optimizer, and zero grads.
     - Return a detached scalar loss tensor for logging.
     """
-    raise NotImplementedError("TODO: implement one training step")
+    model.train()
+    batch, seq_len = input_ids.shape
+    logits, _ = model(input_ids)
+    logits = logits.reshape(batch*seq_len, -1)
+    target_ids = target_ids.reshape(-1)
+    ce_loss = nn.CrossEntropyLoss()
+    loss = ce_loss(logits, target_ids)
+    optimizer.zero_grad()
+    loss.backward()
+    if grad_clip is not None:
+        torch.nn.utils.clip_grad_norm_(
+            model.parameters(),
+            max_norm=grad_clip,
+        )
+    optimizer.step()
+    optimizer.zero_grad()
+    return loss.detach()
 
 
 def train_epoch(
@@ -42,7 +59,11 @@ def train_epoch(
     - Accumulate scalar losses.
     - Return the mean loss for the epoch.
     """
-    raise NotImplementedError("TODO: implement the epoch training loop")
+    losses = []
+    for batch in batches:
+        loss = train_step(model, optimizer, batch[0], batch[1], grad_clip=grad_clip)
+        losses.append(loss)
+    return np.mean(losses)
 
 
 def next_token_loss(logits: torch.Tensor, target_ids: torch.Tensor) -> torch.Tensor:
