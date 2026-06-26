@@ -4,12 +4,14 @@ import torch
 
 from scratch_transformer.model import TransformerLM
 
-def logits_to_probs(logits, temperature=1.0, top_k=0):
-    logits = logits / temperature
-    if top_k >=0 and top_k < logits.shape[-1]:
-        top_values, _ = torch.top_k(logits, top_k, dim=-1)
-        logits = logits.masked_fill()
-
+def logits_to_probs(next_token_logits, temperature=1.0, top_k=0):
+    next_token_logits = next_token_logits / temperature
+    if top_k is not None and top_k > 0 and top_k < next_token_logits.shape[-1]:
+        top_values, indices = torch.topk(next_token_logits, top_k, dim=-1)
+        thresholds = top_values[:,-1].unsqueeze(-1)
+        mask = next_token_logits < thresholds
+        next_token_logits = next_token_logits.masked_fill(mask, float("-inf"))
+    return torch.softmax(next_token_logits, dim=-1)
 
 @torch.no_grad()
 def generate(
@@ -36,9 +38,22 @@ def generate(
     - Convert final-step logits to probabilities using temperature/top-k.
     - Sample or choose next tokens and append them to the running sequence.
     """
+    batch = input_ids.shape[0]
+    if max_new_tokens == 0:
+        return input_ids.clone()
+    was_training = model.training
     model.eval()
-    model.init_caches()
+    caches = model.init_caches(batch)
+    running_sequence = input_ids.clone()
     for i in range(max_new_tokens):
-        logits, caches = model(input_ids)
-        probs = logits_to_probs(logits)
+        if i == 0:
+            logits, caches = model(running_sequence, caches=caches)
+        if i != 0:
+            logits, caches = model(running_sequence[:,-1].unsqueeze(-1), caches=caches)
+        next_token_logits = logits[:, -1, :]
+        probs = logits_to_probs(next_token_logits)
         # choose the next token given the probs
+        next_tokens = torch.argmax(probs, dim=-1).unsqueeze(-1)
+        running_sequence = torch.cat([running_sequence, next_tokens], dim=-1)
+    model.train(was_training)
+    return running_sequence
