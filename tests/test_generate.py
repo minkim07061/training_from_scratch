@@ -33,7 +33,9 @@ class ToyNextTokenModel(nn.Module):
         batch, seq_len = input_ids.shape
         logits = torch.zeros(batch, seq_len, self.config.vocab_size, device=input_ids.device)
         next_ids = (input_ids + 1) % self.config.vocab_size
-        logits.scatter_(-1, next_ids.unsqueeze(-1), self.scale * 5.0)
+        index = next_ids.unsqueeze(-1)
+        source = torch.ones_like(index, dtype=logits.dtype) * (self.scale * 5.0)
+        logits.scatter_(-1, index, source)
         return logits, caches
 
 
