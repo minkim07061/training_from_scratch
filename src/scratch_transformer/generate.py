@@ -4,6 +4,12 @@ import torch
 
 from scratch_transformer.model import TransformerLM
 
+def logits_to_probs(logits, temperature=1.0, top_k=0):
+    logits = logits / temperature
+    if top_k >=0 and top_k < logits.shape[-1]:
+        top_values, _ = torch.top_k(logits, top_k, dim=-1)
+        logits = logits.masked_fill()
+
 
 @torch.no_grad()
 def generate(
@@ -30,4 +36,9 @@ def generate(
     - Convert final-step logits to probabilities using temperature/top-k.
     - Sample or choose next tokens and append them to the running sequence.
     """
-    raise NotImplementedError("TODO: implement autoregressive generation")
+    model.eval()
+    model.init_caches()
+    for i in range(max_new_tokens):
+        logits, caches = model(input_ids)
+        probs = logits_to_probs(logits)
+        # choose the next token given the probs
