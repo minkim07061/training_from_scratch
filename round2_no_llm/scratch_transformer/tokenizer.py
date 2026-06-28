@@ -21,6 +21,29 @@ Suggested test order:
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# Returns merged pair token_ids in tuple and new updated corpus.
+def single_merge(corpus, next_vocab_id):
+    pair_counts = {}
+    for i in range(1, len(corpus)):
+        pair = (corpus[i-1], corpus[i])
+        if pair not in pair_counts:
+            pair_counts[pair] = 1
+        else:
+            pair_counts[pair] = pair_counts[pair] + 1
+    max_count_pair = max(pair_counts, key=pair_counts.get)
+
+    new_corpus = []
+    curr_index = 0 
+    while curr_index < len(corpus):
+        if curr_index == len(corpus-1):
+            new_corpus.append(corpus[curr_index])
+        elif (corpus[curr_index], corpus[curr_index+1]) == max_count_pair:
+            new_corpus.append(next_vocab_id)
+            curr_index += 1
+        else:
+            new_corpus.append(corpus[curr_index])
+        curr_index += 1
+    return new_corpus, max_count_pair
 
 @dataclass
 class BPETokenizer:
@@ -54,7 +77,30 @@ class BPETokenizer:
             - Do not replace a merged pair with left + right numerically.
             - Do not use a for-loop if you need to skip over a matched pair.
         """
-        raise NotImplementedError
+        vocab = {}
+        curr_vocab_id = 0
+        # Create the initial vocab where the id is int(byte) and value is bytes
+        for i in range(256):
+            vocab[curr_vocab_id] = bytes(i)
+            curr_vocab_id += 1
+        
+        # Corpus stores the list of token_ids
+        corpus = []
+        for text in texts:
+            for byte in list(bytes(text.encode("utf-8"))):
+                corpus.append(byte)
+        
+        # Merge until the vocab size limit reaches.
+        merges = {}
+        while curr_vocab_id < vocab_size:
+            corpus, merged_pair = single_merge(corpus, curr_vocab_id)
+            vocab[curr_vocab_id] = vocab[merged_pair[0]] + vocab[merged_pair[1]] # This concatenates the bytes not doing arithmetic sum.
+            merges[merged_pair] = curr_vocab_id
+            curr_vocab_id += 1 
+        
+        returns cls(vocab=vocab, merges=merges)
+                
+        
 
     def encode(self, text: str) -> list[int]:
         """Convert text to token ids.
