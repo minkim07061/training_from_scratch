@@ -29,20 +29,23 @@ Recommended workflow:
 
 ```bash
 # From repository root
-python3 -m pytest tests/test_tokenizer_train.py
-python3 -m pytest tests/test_tokenizer_encode.py
-python3 -m pytest tests/test_tokenizer_decode.py
-python3 -m pytest tests/test_tokenizer_save_load.py
-python3 -m pytest tests/test_rope.py
-python3 -m pytest tests/test_norm.py
-python3 -m pytest tests/test_mlp.py
-python3 -m pytest tests/test_kv_cache.py
-python3 -m pytest tests/test_attention.py
-python3 -m pytest tests/test_transformer_block.py
-python3 -m pytest tests/test_transformer_lm.py
-python3 -m pytest tests/test_generate.py
-python3 -m pytest tests/test_train.py
+SCRATCH_TRANSFORMER_TARGET=round2 python3 -m pytest tests/test_tokenizer_train.py
+SCRATCH_TRANSFORMER_TARGET=round2 python3 -m pytest tests/test_tokenizer_encode.py
+SCRATCH_TRANSFORMER_TARGET=round2 python3 -m pytest tests/test_tokenizer_decode.py
+SCRATCH_TRANSFORMER_TARGET=round2 python3 -m pytest tests/test_tokenizer_save_load.py
+SCRATCH_TRANSFORMER_TARGET=round2 python3 -m pytest tests/test_rope.py
+SCRATCH_TRANSFORMER_TARGET=round2 python3 -m pytest tests/test_norm.py
+SCRATCH_TRANSFORMER_TARGET=round2 python3 -m pytest tests/test_mlp.py
+SCRATCH_TRANSFORMER_TARGET=round2 python3 -m pytest tests/test_kv_cache.py
+SCRATCH_TRANSFORMER_TARGET=round2 python3 -m pytest tests/test_attention.py
+SCRATCH_TRANSFORMER_TARGET=round2 python3 -m pytest tests/test_transformer_block.py
+SCRATCH_TRANSFORMER_TARGET=round2 python3 -m pytest tests/test_transformer_lm.py
+SCRATCH_TRANSFORMER_TARGET=round2 python3 -m pytest tests/test_generate.py
+SCRATCH_TRANSFORMER_TARGET=round2 python3 -m pytest tests/test_train.py
 ```
+
+Without `SCRATCH_TRANSFORMER_TARGET=round2`, pytest targets the completed
+implementation in `src/scratch_transformer`.
 
 When speed-running, keep a bug diary:
 
