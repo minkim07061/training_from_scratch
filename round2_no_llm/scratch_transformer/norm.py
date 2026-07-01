@@ -35,5 +35,7 @@ class RMSNorm(nn.Module):
             - RMSNorm does not subtract the mean.
             - Output shape and dtype should match input.
         """
-        raise NotImplementedError
+        rms = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + self.eps)
+        x = x / rms
+        return x * self.weight
 
