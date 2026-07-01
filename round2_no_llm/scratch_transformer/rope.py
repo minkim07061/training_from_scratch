@@ -36,7 +36,13 @@ def build_rope_cache(
     Invariant:
         Position 0 should have cos=1 and sin=0 for every pair.
     """
-    raise NotImplementedError
+    if head_dim % 2 != 0:
+        raise ValueError("head_dim is not even")
+    even_dim = torch.arange(0, seq_len, 2, dtype=dtype, device=device)
+    inv_frequencies = 1.0 / (base ** (even_dim / head_dim))
+    position_idx = torch.arange(0, seq_len, dtype=dtype, device=device)
+    angle_matrix = torch.outer(position_idx, inv_frequencies)
+    return torch.cos(angle_matrix), torch.sin(angle_matrix)
 
 
 def apply_rope(
@@ -63,5 +69,16 @@ def apply_rope(
     Invariant:
         Pairwise norm should be preserved.
     """
-    raise NotImplementedError
+    batch, n_heads, seq_len, head_dim = x.shape
+    cos = cos[offset:offset + seq_len]
+    sin = sin[offset:offset + seq_len]
+    cos = cos.reshape(1, 1, seq_len, -1)
+    sin = sin.reshape(1, 1, seq_len, -1)
+    x_even = x[:,:,:,0::2]
+    x_odd = x[:,:,:,1::2]
+    rotated_even = x_even * cos - x_odd * sin
+    roated_odd = x_even*sin + x_odd * cos
+    x[:,:,:,0::2] = rotated_even
+    x[:,:,:,1::2] = rotated_odd
+    return x
 
