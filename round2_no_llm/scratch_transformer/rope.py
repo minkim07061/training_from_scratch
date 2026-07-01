@@ -38,7 +38,7 @@ def build_rope_cache(
     """
     if head_dim % 2 != 0:
         raise ValueError("head_dim is not even")
-    even_dim = torch.arange(0, seq_len, 2, dtype=dtype, device=device)
+    even_dim = torch.arange(0, head_dim, 2, dtype=dtype, device=device)
     inv_frequencies = 1.0 / (base ** (even_dim / head_dim))
     position_idx = torch.arange(0, seq_len, dtype=dtype, device=device)
     angle_matrix = torch.outer(position_idx, inv_frequencies)
@@ -77,7 +77,7 @@ def apply_rope(
     x_even = x[:,:,:,0::2]
     x_odd = x[:,:,:,1::2]
     rotated_even = x_even * cos - x_odd * sin
-    roated_odd = x_even*sin + x_odd * cos
+    rotated_odd = x_even*sin + x_odd * cos
     x[:,:,:,0::2] = rotated_even
     x[:,:,:,1::2] = rotated_odd
     return x
