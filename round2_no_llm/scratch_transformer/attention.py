@@ -14,6 +14,9 @@ import torch
 from torch import nn
 
 from scratch_transformer.config import TransformerConfig
+from scratch_transformer.rope import apply_rope
+
+import math
 
 
 def build_causal_mask(
@@ -35,7 +38,10 @@ def build_causal_mask(
         2. Current positions use a lower-triangular mask.
         3. Concatenate past and current masks along key dimension.
     """
-    raise NotImplementedError
+    past = torch.ones(seq_len, past_len)
+    current = torch.ones(seq_len, seq_len)
+    current = torch.tril(current, diagonal=-1)
+    return torch.cat([past, current], dim=1)
 
 
 @dataclass
@@ -46,7 +52,7 @@ class KVCache:
     @property
     def length(self) -> int:
         """Return cached sequence length."""
-        raise NotImplementedError
+        return self.keys.shape[-2]
 
     def append(self, keys: torch.Tensor, values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Append new keys/values along sequence dimension.
@@ -59,7 +65,12 @@ class KVCache:
             2. Otherwise concatenate along dim=-2.
             3. Return the full cached keys and values.
         """
-        raise NotImplementedError
+        if self.keys is None:
+            self.keys = keys
+            self.values = values
+        self.keys = torch.cat([self.keys, keys], dim=-2)
+        self.values = torch.cat([self.values, values], dim=-2)
+        return self.keys, self.values
 
 
 class MultiHeadCausalSelfAttention(nn.Module):
@@ -104,5 +115,38 @@ class MultiHeadCausalSelfAttention(nn.Module):
             - Dropping the batch dimension when merging heads.
             - Applying RoPE with offset 0 during cached generation.
         """
-        raise NotImplementedError
+        batch, seq_len, d_model = x.shape
+        n_heads = self.config.n_heads
+        head_dim = d_model // n_heads
+        # apply wq, wk, wv all at the same time.
+        qkv = self.qkv(x)
+        q = qkv[:, :, :d_model]
+        k = qkv[:, :, d_model:2*d_model]
+        v = qkv[:, :, 2*d_model:]
+
+        q = q.reshape(batch, n_heads, seq_len, head_dim)
+        k = k.reshape(batch, n_heads, seq_len, head_dim)
+        v = v.reshape(batch, n_heads, seq_len, head_dim)
+
+        # Apply RoPE
+        cache_len = self.cache.length()
+        q = apply_rope(q, cos, sin, offset=cache_len)
+        k = apply_rope(k, cos, sin, offset=cache_len)
+
+        # append k and v to cache.
+        k, v = cache.append(k, v)
+        
+        # compute raw attention scores
+        scores = q @ torch.transpose(k, -2, -1) / math.sqrt(head_dim) # shape: (batch, n_heads, seq_len, seq_len+past_len)
+
+        # apply mask
+        mask = build_causal_mask(seq_len, past_len=past_len)
+        scores = scores.masked_fill(mask, float('-inf'))
+        softmax = F.softmax(scores, -1)
+
+
+
+
+
+
 
