@@ -33,10 +33,19 @@ class TransformerConfig:
             - d_ff > 0
             - dropout in [0, 1)
         """
-        raise NotImplementedError
+        assert(self.vocab_size > 0)
+        assert(self.context_length > 0)
+        assert(self.d_model > 0)
+        assert(self.n_layers > 0)
+        assert(self.n_heads > 0)
+        assert(self.d_model % self.n_heads == 0)
+        assert(self.head_dim % 2 == 0)
+        assert(self.d_ff > 0)
+        assert(self.dropout >=0 and self.dropout < 1)
+
 
     @property
     def head_dim(self) -> int:
         """Return per-head hidden dimension."""
-        raise NotImplementedError
+        return self.d_model // self.n_heads
 

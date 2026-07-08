@@ -35,5 +35,10 @@ class SwiGLU(nn.Module):
         Shape invariant:
             Input and output should both be (batch, seq_len, d_model).
         """
-        raise NotImplementedError
+        gate_x = self.gate_proj(x) # (batch, seq_len, d_ff)
+        gate_silu = gate_x / (1 + torch.exp(-1.0 * gate_x)) # (batch, seq_len, d_ff)
+        up_proj = self.up_proj(x) # (batch, seq_len, d_ff)
+        mult = gate_silu * up_proj # (batch, seq_len, d_ff)
+        down_proj = self.down_proj(mult) # (batch, seq_len, d_model)
+        return self.dropout(down_proj) # (batch, seq_len, d_model)
 
