@@ -17,6 +17,8 @@ from scratch_transformer.config import TransformerConfig
 from scratch_transformer.rope import apply_rope
 
 import math
+import torch.nn.functional as F
+
 
 
 def build_causal_mask(
@@ -40,8 +42,9 @@ def build_causal_mask(
     """
     past = torch.ones(seq_len, past_len)
     current = torch.ones(seq_len, seq_len)
-    current = torch.tril(current, diagonal=-1)
-    return torch.cat([past, current], dim=1)
+    current = torch.tril(current, diagonal=0)
+    mask = torch.cat([past, current], dim=1).bool()
+    return mask
 
 
 @dataclass
@@ -129,12 +132,12 @@ class MultiHeadCausalSelfAttention(nn.Module):
         v = v.reshape(batch, n_heads, seq_len, head_dim)
 
         # Apply RoPE
-        cache_len = 0
+        past_len = 0
         if cache:
-            cache_len = cache.length()
+            past_len = cache.length()
         if cos:
-            q = apply_rope(q, cos, sin, offset=cache_len)
-            k = apply_rope(k, cos, sin, offset=cache_len)
+            q = apply_rope(q, cos, sin, offset=past_len)
+            k = apply_rope(k, cos, sin, offset=past_len)
 
         # append k and v to cache.
         if cache:
@@ -146,11 +149,12 @@ class MultiHeadCausalSelfAttention(nn.Module):
         # apply mask
         mask = build_causal_mask(seq_len, past_len=past_len)
         scores = scores.masked_fill(mask, float('-inf'))
-        softmax = F.softmax(scores, -1) # (batch, n_heads, seq_len)
-        softmax = softmax.unsqueeze(-1) # (batch, n_heads, seq_len, 1)
+        softmax = F.softmax(scores, -1) # (batch, n_heads, seq_len, seq_len+past_len)
 
         # multiply attention weights by values
-        attention_values = softmax * v # shape (batch, n_heads, seq_len, head_dim)
+        print(softmax.shape)
+        print(v.shape)
+        attention_values = softmax @ v # shape (batch, n_heads, seq_len, seq_len+past_len)
 
         # Merge heads back to (batch, seq_len, d_model).
         attention_values = torch.transpose(attention_values, 1, 2).reshape(batch, seq_len, d_model)
@@ -158,6 +162,8 @@ class MultiHeadCausalSelfAttention(nn.Module):
         # Apply output projection and dropout.
         out = self.dropout(self.out_proj(attention_values))
         return out, cache
+
+        # TODO: we really need to understand the attention dimensions by drawing it out.
 
 
 
