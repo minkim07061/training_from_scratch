@@ -129,12 +129,16 @@ class MultiHeadCausalSelfAttention(nn.Module):
         v = v.reshape(batch, n_heads, seq_len, head_dim)
 
         # Apply RoPE
-        cache_len = self.cache.length()
-        q = apply_rope(q, cos, sin, offset=cache_len)
-        k = apply_rope(k, cos, sin, offset=cache_len)
+        cache_len = 0
+        if cache:
+            cache_len = cache.length()
+        if cos:
+            q = apply_rope(q, cos, sin, offset=cache_len)
+            k = apply_rope(k, cos, sin, offset=cache_len)
 
         # append k and v to cache.
-        k, v = cache.append(k, v)
+        if cache:
+            k, v = cache.append(k, v) # (batch, n_heads, seq_len+past_len, seq_len)
         
         # compute raw attention scores
         scores = q @ torch.transpose(k, -2, -1) / math.sqrt(head_dim) # shape: (batch, n_heads, seq_len, seq_len+past_len)
@@ -142,8 +146,18 @@ class MultiHeadCausalSelfAttention(nn.Module):
         # apply mask
         mask = build_causal_mask(seq_len, past_len=past_len)
         scores = scores.masked_fill(mask, float('-inf'))
-        softmax = F.softmax(scores, -1)
+        softmax = F.softmax(scores, -1) # (batch, n_heads, seq_len)
+        softmax = softmax.unsqueeze(-1) # (batch, n_heads, seq_len, 1)
 
+        # multiply attention weights by values
+        attention_values = softmax * v # shape (batch, n_heads, seq_len, head_dim)
+
+        # Merge heads back to (batch, seq_len, d_model).
+        attention_values = torch.transpose(attention_values, 1, 2).reshape(batch, seq_len, d_model)
+        
+        # Apply output projection and dropout.
+        out = self.dropout(self.out_proj(attention_values))
+        return out, cache
 
 
 
