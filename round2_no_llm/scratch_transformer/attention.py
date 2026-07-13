@@ -145,8 +145,6 @@ class MultiHeadCausalSelfAttention(nn.Module):
         # append k and v to cache.
         if cache:
             k, v = cache.append(k, v) # (batch, n_heads, seq_len+past_len, head_dim)
-        else:
-            cache = KVCache(keys=k, values=v)
         
         # compute raw attention scores
         scores = q @ torch.transpose(k, -2, -1) / math.sqrt(head_dim) # shape: (batch, n_heads, seq_len, seq_len+past_len)
