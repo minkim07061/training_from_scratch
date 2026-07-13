@@ -55,7 +55,9 @@ class KVCache:
     @property
     def length(self) -> int:
         """Return cached sequence length."""
-        return self.keys.shape[-2]
+        if self.keys is not None:
+            return self.keys.shape[-2]
+        return 0
 
     def append(self, keys: torch.Tensor, values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Append new keys/values along sequence dimension.
@@ -71,8 +73,9 @@ class KVCache:
         if self.keys is None:
             self.keys = keys
             self.values = values
-        self.keys = torch.cat([self.keys, keys], dim=-2)
-        self.values = torch.cat([self.values, values], dim=-2)
+        else:
+            self.keys = torch.cat([self.keys, keys], dim=-2)
+            self.values = torch.cat([self.values, values], dim=-2)
         return self.keys, self.values
 
 
@@ -134,14 +137,14 @@ class MultiHeadCausalSelfAttention(nn.Module):
         # Apply RoPE
         past_len = 0
         if cache:
-            past_len = cache.length()
+            past_len = cache.length
         if cos:
             q = apply_rope(q, cos, sin, offset=past_len)
             k = apply_rope(k, cos, sin, offset=past_len)
 
         # append k and v to cache.
         if cache:
-            k, v = cache.append(k, v) # (batch, n_heads, seq_len+past_len, seq_len)
+            k, v = cache.append(k, v) # (batch, n_heads, seq_len+past_len, head_dim)
         
         # compute raw attention scores
         scores = q @ torch.transpose(k, -2, -1) / math.sqrt(head_dim) # shape: (batch, n_heads, seq_len, seq_len+past_len)
@@ -154,7 +157,7 @@ class MultiHeadCausalSelfAttention(nn.Module):
         # multiply attention weights by values
         print(softmax.shape)
         print(v.shape)
-        attention_values = softmax @ v # shape (batch, n_heads, seq_len, seq_len+past_len)
+        attention_values = softmax @ v # shape (batch, n_heads, seq_len, head_dim)
 
         # Merge heads back to (batch, seq_len, d_model).
         attention_values = torch.transpose(attention_values, 1, 2).reshape(batch, seq_len, d_model)
@@ -162,8 +165,6 @@ class MultiHeadCausalSelfAttention(nn.Module):
         # Apply output projection and dropout.
         out = self.dropout(self.out_proj(attention_values))
         return out, cache
-
-        # TODO: we really need to understand the attention dimensions by drawing it out.
 
 
 
