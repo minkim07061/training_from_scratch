@@ -16,6 +16,7 @@ from scratch_transformer.attention import KVCache, MultiHeadCausalSelfAttention
 from scratch_transformer.config import TransformerConfig
 from scratch_transformer.mlp import SwiGLU
 from scratch_transformer.norm import RMSNorm
+from scratch_transformer.rope import build_rope_cache
 
 
 class TransformerBlock(nn.Module):
@@ -65,7 +66,10 @@ class TransformerLM(nn.Module):
 
     def init_caches(self, batch_size: int, device: torch.device | str | None = None) -> list[KVCache]:
         """Create one cache object per layer."""
-        raise NotImplementedError
+        caches = []
+        for i in range(self.config.n_layers):
+            caches.append(KVCache())
+        return caches
 
     def forward(
         self,
@@ -89,5 +93,23 @@ class TransformerLM(nn.Module):
         Output shape:
             (batch, seq_len, vocab_size)
         """
-        raise NotImplementedError
+        # input_ids shape: (batch_size, seq_len)
+        batch_size, seq_len = input_ids.shape
+        head_dim = self.config.d_model/ self.config.n_heads
+        x = self.token_embedding(input_ids) # (batch_size, seq_len, embedding_dim)
+        past_len = 0
+        if caches and caches[0] is not None:
+            past_len = caches[0].length
+        cos, sin = build_rope_cache(seq_len+past_len, head_dim)
+        for i, block in enumerate(self.blocks):
+            if caches is not None:
+                x, cache = block(x, cos=cos, sin=sin, cache=caches[i])
+                caches[i] = cache
+            else:
+                x, cache = block(x, cos=cos, sin=sin)
+        x = self.final_norm(x)
+        x = self.lm_head(x)
+        return x, caches
+
+        
 
