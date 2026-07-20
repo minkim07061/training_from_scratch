@@ -136,14 +136,14 @@ class MultiHeadCausalSelfAttention(nn.Module):
 
         # Apply RoPE
         past_len = 0
-        if cache:
+        if cache is not None:
             past_len = cache.length
-        if cos:
+        if cos is not None:
             q = apply_rope(q, cos, sin, offset=past_len)
             k = apply_rope(k, cos, sin, offset=past_len)
 
         # append k and v to cache.
-        if cache:
+        if cache is not None:
             k, v = cache.append(k, v) # (batch, n_heads, seq_len+past_len, head_dim)
         
         # compute raw attention scores

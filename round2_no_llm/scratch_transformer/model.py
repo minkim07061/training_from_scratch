@@ -46,15 +46,12 @@ class TransformerBlock(nn.Module):
             7. Return x and cache.
         """
         x_attn_norm = self.attn_norm(x)
-        attn, cache = self.attn(x_attn_norm, cps=cos, sin=sin, cache=cache)
-        x += attn
+        attn, cache = self.attn(x_attn_norm, cos=cos, sin=sin, cache=cache)
+        x = x + attn
         x_mlp_norm = self.mlp_norm(x)
         x_mlp = self.mlp(x_mlp_norm)
-        x += x_mlp
+        x = x + x_mlp
         return x, cache
-
-        
-
 
 
 class TransformerLM(nn.Module):
