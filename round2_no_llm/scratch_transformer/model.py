@@ -45,7 +45,16 @@ class TransformerBlock(nn.Module):
             6. Add MLP residual.
             7. Return x and cache.
         """
-        raise NotImplementedError
+        x_attn_norm = self.attn_norm(x)
+        attn, cache = self.attn(x_attn_norm, cps=cos, sin=sin, cache=cache)
+        x += attn
+        x_mlp_norm = self.mlp_norm(x)
+        x_mlp = self.mlp(x_mlp_norm)
+        x += x_mlp
+        return x, cache
+
+        
+
 
 
 class TransformerLM(nn.Module):

@@ -126,13 +126,13 @@ class MultiHeadCausalSelfAttention(nn.Module):
         head_dim = d_model // n_heads
         # apply wq, wk, wv all at the same time.
         qkv = self.qkv(x)
-        q = qkv[:, :, :d_model]
+        q = qkv[:, :, :d_model] # shape (batch, seq_len, d_model)
         k = qkv[:, :, d_model:2*d_model]
         v = qkv[:, :, 2*d_model:]
 
-        q = q.reshape(batch, n_heads, seq_len, head_dim)
-        k = k.reshape(batch, n_heads, seq_len, head_dim)
-        v = v.reshape(batch, n_heads, seq_len, head_dim)
+        q = q.reshape(batch, seq_len, n_heads, head_dim).transpose(1, 2) # shape (batch, n_heads, seq_len, head_dim)
+        k = k.reshape(batch, seq_len, n_heads, head_dim).transpose(1, 2)
+        v = v.reshape(batch, seq_len, n_heads, head_dim).transpose(1, 2)
 
         # Apply RoPE
         past_len = 0
@@ -151,12 +151,10 @@ class MultiHeadCausalSelfAttention(nn.Module):
 
         # apply mask
         mask = build_causal_mask(seq_len, past_len=past_len)
-        scores = scores.masked_fill(mask, float('-inf'))
+        scores = scores.masked_fill(~mask, float('-inf'))
         softmax = F.softmax(scores, -1) # (batch, n_heads, seq_len, seq_len+past_len)
 
         # multiply attention weights by values
-        print(softmax.shape)
-        print(v.shape)
         attention_values = softmax @ v # shape (batch, n_heads, seq_len, head_dim)
 
         # Merge heads back to (batch, seq_len, d_model).
